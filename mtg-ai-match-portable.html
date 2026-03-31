@@ -1,0 +1,1412 @@
+<!-- AI MTG Match — Portable Single-File Build -->
+<!-- Drop this one file anywhere and open it in a browser -->
+<style>
+:root {
+  color-scheme: dark;
+  --bg: #09111e;
+  --panel: rgba(14, 22, 38, 0.9);
+  --panel2: rgba(20, 30, 50, 0.92);
+  --line: rgba(255, 255, 255, 0.09);
+  --text: #eef4ff;
+  --muted: rgba(238, 244, 255, 0.68);
+  --accent: #6ea8ff;
+  --accent2: #8b5cf6;
+  --good: #22c55e;
+  --warn: #f59e0b;
+  --bad: #ef4444;
+  --shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
+}
+
+* { box-sizing: border-box; }
+html, body { width: 100%; min-height: 100%; margin: 0; background: radial-gradient(circle at top, #16304f 0%, var(--bg) 55%); color: var(--text); font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; overflow: auto; }
+button, input, select { font: inherit; }
+
+.app { display: flex; flex-direction: column; width: 100%; min-height: 100vh; height: auto; }
+.topbar {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 14px;
+  padding: 16px 18px; border-bottom: 1px solid var(--line); background: rgba(4, 10, 20, 0.55); backdrop-filter: blur(10px);
+}
+.topbar h1 { margin: 0; font-size: 22px; letter-spacing: -0.03em; }
+.topbar p { margin: 4px 0 0; color: var(--muted); font-size: 13px; max-width: 62ch; }
+.controls {
+  display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-start; justify-content: flex-start; width: 100%;
+}
+.controls label { display: flex; flex-direction: column; gap: 6px; font-size: 11px; color: var(--muted); align-items: flex-start; }
+.controls input, .controls select {
+  background: rgba(255,255,255,0.06); color: var(--text); border: 1px solid var(--line); border-radius: 10px;
+  padding: 8px 10px; min-width: 120px; outline: none;
+}
+.controls input[type="range"] { min-width: 160px; padding: 8px 0; }
+.controls button {
+  border: 1px solid var(--line); border-radius: 10px; padding: 9px 12px; cursor: pointer; color: var(--text);
+  background: rgba(255,255,255,0.08); transition: transform 120ms ease, background 120ms ease, border-color 120ms ease;
+}
+.controls button:hover { transform: translateY(-1px); background: rgba(255,255,255,0.12); }
+.controls .primary { background: linear-gradient(135deg, var(--accent), var(--accent2)); border-color: rgba(255,255,255,0.14); }
+
+.grid { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 14px; padding: 14px; min-height: 0; flex: 1 1 auto; align-items: start; }
+.board, .logPane {
+  background: var(--panel); border: 1px solid var(--line); border-radius: 18px; box-shadow: var(--shadow); overflow: hidden; min-height: 0;
+}
+.board, .logPane { align-self: start; }
+.board { display: flex; flex-direction: column; }
+.statusBar { padding: 10px 14px; border-bottom: 1px solid var(--line); color: var(--muted); font-size: 13px; }
+.arena {
+  display: grid; grid-template-rows: 1fr auto 1fr; gap: 12px; padding: 14px; min-height: 0; flex: 1;
+  background: radial-gradient(circle at 50% 50%, rgba(139, 92, 246, 0.12), rgba(255,255,255,0.02) 55%),
+              linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.05));
+}
+.seat {
+  border: 1px solid var(--line); border-radius: 16px; background: rgba(255,255,255,0.03); padding: 12px; min-height: 0; display: flex; flex-direction: column;
+}
+.seat.top { background: linear-gradient(180deg, rgba(120, 83, 255, 0.10), rgba(255,255,255,0.03)); }
+.seat.bottom { background: linear-gradient(180deg, rgba(34, 197, 94, 0.08), rgba(255,255,255,0.03)); }
+.seatHeader { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.seatName { font-weight: 700; letter-spacing: -0.01em; }
+.subtle { color: var(--muted); font-size: 12px; }
+.zones { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.zonePill { border: 1px solid var(--line); border-radius: 999px; padding: 5px 9px; font-size: 12px; background: rgba(255,255,255,0.05); }
+.zonePill strong { color: white; }
+.lifeRow { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+.lifeChip { display: inline-flex; align-items: center; gap: 6px; border-radius: 999px; border: 1px solid var(--line); padding: 7px 10px; background: rgba(255,255,255,0.06); font-size: 13px; }
+.lifeChip.good { color: #b5f7c6; }
+.lifeChip.bad { color: #ffb5b5; }
+.battlefield { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 12px; min-height: 110px; }
+.card {
+  width: 76px; height: 106px; border-radius: 11px; border: 1px solid rgba(255,255,255,0.12);
+  display: flex; flex-direction: column; justify-content: space-between; padding: 8px; position: relative; overflow: hidden;
+}
+.card .name { font-size: 10px; line-height: 1.15; font-weight: 700; }
+.card .type { font-size: 9px; color: rgba(255,255,255,0.7); }
+.card .stats { display: flex; justify-content: space-between; align-items: end; font-size: 11px; font-weight: 700; }
+.card.creature:not(.has-art) { background: linear-gradient(180deg, rgba(255, 192, 72, 0.16), rgba(255,255,255,0.05)); }
+.card.spell:not(.has-art) { background: linear-gradient(180deg, rgba(139, 92, 246, 0.18), rgba(255,255,255,0.05)); }
+.card.land:not(.has-art) { background: linear-gradient(180deg, rgba(34, 197, 94, 0.16), rgba(255,255,255,0.05)); }
+.lands-row { min-height: 50px !important; gap: 3px !important; flex-wrap: wrap !important; }
+.lands-row .card { width: 40px !important; height: 56px !important; border-radius: 6px !important; }
+.lands-row .card .name { font-size: 0 !important; visibility: hidden !important; }
+.lands-row .card .stats { display: none !important; }
+.lands-row .card .badge { display: none !important; }
+.app.match-active .lands-row .card { width: 48px !important; height: 67px !important; }
+.land-card { opacity: 0.95; }
+.land-card.has-art { background-size: contain !important; background-repeat: no-repeat !important; background-position: center !important; }
+.card.tapped { transform: rotate(90deg); }
+.card.attack { outline: 2px solid rgba(239, 68, 68, 0.7); box-shadow: 0 0 0 2px rgba(239,68,68,0.2); }
+.card.block { outline: 2px solid rgba(59, 130, 246, 0.7); }
+.card.dead { opacity: 0.35; filter: grayscale(0.8); }
+.card:hover { transform: translateY(-2px); }
+.card.tapped:hover { transform: rotate(90deg) translateY(-2px); }
+.card .badge {
+  position: absolute; top: 6px; right: 6px; border-radius: 999px; padding: 3px 6px; font-size: 9px; font-weight: 800; background: rgba(0,0,0,0.65);
+}
+.card .badge.red { color: #ff7d7d; }
+.card .badge.blue { color: #86b6ff; }
+.card .badge.green { color: #b7ffb9; }
+.card .badge.yellow { color: #ffe18c; }
+.card .badge.purple { color: #d7b7ff; }
+.centerLane { display: grid; grid-template-columns: 1fr; gap: 10px; align-items: center; }
+.phaseBox, .matchBox, .summaryBox {
+  border: 1px solid var(--line); border-radius: 14px; background: rgba(255,255,255,0.05); padding: 10px 12px; min-height: 44px;
+}
+.phaseBox { font-size: 13px; }
+.matchBox { font-size: 14px; font-weight: 700; }
+.summaryBox { font-size: 12px; color: var(--muted); line-height: 1.5; }
+.logPane { display: flex; flex-direction: column; min-height: 0; }
+.logHeader { display: flex; justify-content: space-between; gap: 10px; align-items: start; padding: 14px 14px 10px; border-bottom: 1px solid var(--line); }
+.logHeader h2 { margin: 0; font-size: 16px; }
+.logHeader #matchMeta { color: var(--muted); font-size: 12px; text-align: right; }
+.log { padding: 12px 14px 14px; overflow: auto; display: flex; flex-direction: column; gap: 8px; min-height: 0; }
+.entry { border: 1px solid var(--line); background: rgba(255,255,255,0.04); padding: 9px 10px; border-radius: 12px; font-size: 12px; color: rgba(255,255,255,0.9); }
+.entry .time { color: var(--muted); font-size: 11px; display: block; margin-bottom: 4px; }
+.entry.good { border-color: rgba(34,197,94,0.25); }
+.entry.warn { border-color: rgba(245,158,11,0.25); }
+.entry.bad { border-color: rgba(239,68,68,0.25); }
+.entry.info { border-color: rgba(110,168,255,0.25); }
+.footerHint { border-top: 1px solid var(--line); padding: 10px 14px; font-size: 12px; color: var(--muted); }
+
+/* card art backgrounds */
+.card:not(.has-art) { background: linear-gradient(180deg, rgba(255,255,255,0.09), rgba(255,255,255,0.04)); }
+.card.has-art { color: #fff; text-shadow: 0 1px 4px rgba(0,0,0,0.9); background-size: cover; background-position: center top; }
+.card.has-art .name { font-size: 10px; font-weight: 800; }
+.card.has-art .type { display: none; }
+.card.has-art .stats { text-shadow: 0 1px 6px rgba(0,0,0,1); }
+
+/* overlays */
+.board { position: relative; }
+.game-overlay {
+  position: absolute; inset: 0; z-index: 50;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  background: rgba(0,0,0,0.50);
+  animation: overlayIn 0.35s ease;
+}
+@keyframes overlayIn { from { opacity: 0; transform: scale(0.92); } to { opacity: 1; transform: scale(1); } }
+.overlay-title {
+  font-size: 42px; font-weight: 900; letter-spacing: -0.03em;
+  background: linear-gradient(135deg, var(--accent), var(--accent2), var(--good));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  animation: overlayPop 0.5s ease;
+}
+@keyframes overlayPop { 0% { transform: scale(0.4); opacity: 0; } 60% { transform: scale(1.08); } 100% { transform: scale(1); opacity: 1; } }
+.overlay-sub { font-size: 18px; color: rgba(255,255,255,0.8); margin-top: 12px; text-align: center; line-height: 1.5; font-weight: 600; }
+.overlay-stats { font-size: 14px; color: var(--muted); margin-top: 10px; }
+.overlay-countdown { font-size: 16px; color: var(--accent); margin-top: 14px; font-weight: 700; }
+
+.app.match-active .grid { grid-template-columns: minmax(0, 1fr) 380px; align-items: start; }
+.app.match-active .logPane { min-height: 240px; }
+.app.match-active .topbar { padding-bottom: 12px; }
+.app.match-active .controls { justify-content: flex-start; }
+.app.match-active .controls label { display: none; }
+.app.match-active .controls { flex-wrap: wrap; }
+.app.match-active .board { min-height: calc(100vh - 210px); }
+.app.match-active .board, .app.match-active .logPane { width: 100%; }
+.app.match-active .arena { gap: 16px; padding: 18px; }
+.app.match-active .seat { min-height: 240px; }
+.app.match-active .battlefield { min-height: 160px; }
+.app.match-active .card { width: 92px; height: 128px; }
+.app.match-active .card .name { font-size: 12px; }
+.app.match-active .card .type { font-size: 10px; }
+.app.match-active .card .stats { font-size: 12px; }
+.app.match-active .summaryBox { color: rgba(238, 244, 255, 0.8); }
+
+@media (max-width: 1100px) {
+  .grid { grid-template-columns: 1fr; }
+  .logPane { min-height: 340px; }
+  .app.match-active .board { min-height: auto; }
+}
+</style>
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AI MTG Match</title>
+    
+  </head>
+  <body>
+    <div class="app">
+      <header class="topbar">
+        <div>
+          <h1>AI MTG Match</h1>
+          <p>Head-to-head autonomous Magic-inspired battles with no human players.</p>
+        </div>
+        <div class="controls">
+          <label>
+            Left deck
+            <select id="leftDeck"></select>
+          </label>
+          <label>
+            Right deck
+            <select id="rightDeck"></select>
+          </label>
+          <label>
+            Format
+            <select id="formatSelect">
+              <option value="standard">Standard (60 cards · 20 HP)</option>
+              <option value="commander">Commander (100 cards · 40 HP)</option>
+            </select>
+          </label>
+          <label>
+            Seed
+            <input id="seedInput" type="number" value="1337" />
+          </label>
+
+          <button id="startBtn" class="primary">Start match</button>
+          <button id="pauseBtn">Pause</button>
+          <button id="resetBtn">Reset</button>
+          <button id="multiBtn">Run 25 matches</button>
+        </div>
+      </header>
+
+      <main class="grid">
+        <section class="board">
+          <div id="statusBar" class="statusBar"></div>
+          <div class="arena">
+            <article class="seat top" id="seat1"></article>
+            <div class="centerLane">
+              <div class="phaseBox" id="phaseBox"></div>
+              <div class="matchBox" id="matchBox"></div>
+              <div class="summaryBox" id="summaryBox"></div>
+            </div>
+            <article class="seat bottom" id="seat2"></article>
+          </div>
+        </section>
+
+        <aside class="logPane">
+          <div class="logHeader">
+            <h2>Match log</h2>
+            <div id="matchMeta"></div>
+          </div>
+          <div id="log" class="log"></div>
+          <div class="footerHint">
+            <span>Real MTG cards from Scryfall · Auto-mana engine · AI vs AI</span>
+          </div>
+        </aside>
+      </main>
+    </div>
+
+    
+  </body>
+</html>
+<script type="module">
+/* ═══════════════════════════════════════════════════════════════
+   AI MTG MATCH — Real Scryfall cards, art, effects, auto-rematch
+   ═══════════════════════════════════════════════════════════════ */
+const $ = s => document.querySelector(s);
+
+// Global error catcher — shows errors visually
+window.addEventListener('error', e => {
+  const bar = document.querySelector('#statusBar');
+  if (bar) bar.textContent = '⚠ Error: ' + (e.message || e);
+  console.error('Global error:', e);
+});
+window.addEventListener('unhandledrejection', e => {
+  const bar = document.querySelector('#statusBar');
+  if (bar) bar.textContent = '⚠ Promise error: ' + (e.reason?.message || e.reason || e);
+  console.error('Unhandled rejection:', e.reason);
+});
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+function clamp(n, lo, hi) { return Math.max(lo, Math.min(hi, n)); }
+
+/* ── seeded RNG ────────────────────────────────────────────── */
+function mulberry32(seed) {
+  let t = seed >>> 0;
+  return () => { t += 0x6d2b79f5; let r = Math.imul(t ^ (t >>> 15), 1 | t); r ^= r + Math.imul(r ^ (r >>> 7), 61 | r); return ((r ^ (r >>> 14)) >>> 0) / 4294967296; };
+}
+function rngInt(rng, lo, hi) { return Math.floor(rng() * (hi - lo + 1)) + lo; }
+function rngPick(rng, a) { return a[Math.floor(rng() * a.length)]; }
+function shuffle(rng, a) { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+
+/* ── Scryfall helpers ──────────────────────────────────────── */
+const SF = 'https://api.scryfall.com';
+const ART_CACHE = {};
+const SEARCH_CACHE = {};
+let _sfLastFetch = 0;
+
+async function sfThrottle() {
+  const gap = 120 - (Date.now() - _sfLastFetch);
+  if (gap > 0) await sleep(gap);
+  _sfLastFetch = Date.now();
+}
+
+async function sfFetch(url) {
+  const cached = SEARCH_CACHE[url];
+  if (cached) return cached;
+  await sfThrottle();
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const json = await res.json();
+    SEARCH_CACHE[url] = json;
+    return json;
+  } catch { return null; }
+}
+
+async function sfSearch(query, maxPages = 2) {
+  const all = [];
+  for (let page = 1; page <= maxPages; page++) {
+    const url = `${SF}/cards/search?q=${encodeURIComponent(query)}&order=edhrec&unique=cards&page=${page}`;
+    const json = await sfFetch(url);
+    if (!json?.data) break;
+    for (const c of json.data) all.push(c);
+    if (!json.has_more) break;
+  }
+  return all;
+}
+
+function sfImage(card) {
+  return card?.image_uris?.normal || card?.image_uris?.small
+    || card?.card_faces?.[0]?.image_uris?.normal
+    || card?.card_faces?.[0]?.image_uris?.small || '';
+}
+
+function sfArtCrop(card) {
+  return card?.image_uris?.art_crop
+    || card?.card_faces?.[0]?.image_uris?.art_crop || sfImage(card);
+}
+
+function sfOracle(card) {
+  return card?.oracle_text || card?.card_faces?.[0]?.oracle_text || '';
+}
+
+/* ── Card simplifier ───────────────────────────────────────── */
+function simplifyCard(raw) {
+  if (!raw || raw.object !== 'card') return null;
+  const tl = (raw.type_line || '').toLowerCase();
+  let type = 'unknown';
+  if (tl.includes('creature')) type = 'creature';
+  else if (tl.includes('instant')) type = 'instant';
+  else if (tl.includes('sorcery')) type = 'sorcery';
+  else if (tl.includes('enchantment')) type = 'enchantment';
+  else if (tl.includes('artifact')) type = 'artifact';
+  else if (tl.includes('land')) type = 'land';
+
+  const oracle = sfOracle(raw);
+  return {
+    id: raw.id,
+    name: raw.name,
+    type,
+    typeLine: raw.type_line || '',
+    cost: Math.round(raw.cmc || 0),
+    power: raw.power != null ? parseInt(raw.power, 10) || 0 : 0,
+    toughness: raw.toughness != null ? parseInt(raw.toughness, 10) || 0 : 0,
+    keywords: raw.keywords || [],
+    oracle,
+    imageNormal: sfImage(raw),
+    artCrop: sfImage(raw),  // Use full card for art — more recognizable
+    rating: 0,
+    spell: parseSpellEffects(oracle, type),
+    etb: parseEtb(oracle),
+    token: false,
+    attackTrigger: parseAttackTrigger(oracle),
+  };
+  // Parse additional keywords from oracle text that Scryfall doesn't list in keywords[]
+  const oracleLower = oracle.toLowerCase();
+  const extraKws = ['haste','vigilance','flying','trample','deathtouch','lifelink','menace',
+    'first strike','double strike','reach','hexproof','indestructible','defender','flash','ward'];
+  for (const kw of extraKws) {
+    if (oracleLower.includes(kw) && !card.keywords.some(k => k.toLowerCase() === kw)) {
+      card.keywords.push(kw.split(' ').map(w => w[0].toUpperCase() + w.slice(1)).join(' '));
+    }
+  }
+  return card;
+}
+
+/* ── Oracle text parsers ───────────────────────────────────── */
+function parseSpellEffects(oracle, type) {
+  if (!oracle || (type !== 'instant' && type !== 'sorcery')) return null;
+  const lc = oracle.toLowerCase();
+  // damage
+  const dmg = lc.match(/deals?\s+(\d+)\s+damage\s+to\s+(any target|target creature|target player|each opponent)/);
+  if (dmg) {
+    const tgt = dmg[2];
+    if (tgt === 'each opponent') return { kind: 'damageAll', amount: +dmg[1] };
+    if (tgt === 'target creature') return { kind: 'damageCreature', amount: +dmg[1] };
+    return { kind: 'damageAny', amount: +dmg[1] };
+  }
+  // destroy
+  if (/destroy target creature/i.test(lc)) return { kind: 'destroyCreature' };
+  if (/destroy all creatures/i.test(lc)) return { kind: 'destroyAllCreatures' };
+  // exile
+  if (/exile target (creature|permanent)/i.test(lc)) return { kind: 'exileCreature' };
+  // bounce
+  if (/return target (creature|nonland|permanent).*owner's hand/i.test(lc)) return { kind: 'bounceCreature' };
+  // draw
+  const draw = lc.match(/draw\s+(\w+)\s+cards?/);
+  if (draw) { const n = parseInt(draw[1]) || ({'a':1,'one':1,'two':2,'three':3,'four':4,'five':5}[draw[1]] || 1); return { kind: 'draw', count: n }; }
+  // gain life
+  const life = lc.match(/gain\s+(\d+)\s+life/);
+  if (life) return { kind: 'gainLife', amount: +life[1] };
+  // buff
+  const buff = lc.match(/target creature gets?\s+([+-]\d+)\/([+-]\d+)/);
+  if (buff) return { kind: 'buffCreature', power: +buff[1], toughness: +buff[2], untilEndOfTurn: /until end of turn/i.test(lc) };
+  // drain
+  if (/loses?\s+(\d+)\s+life.*gain/i.test(lc) || /drain/i.test(lc)) {
+    const m = lc.match(/(\d+)\s+life/); return { kind: 'lifeDrain', amount: m ? +m[1] : 2 };
+  }
+  // discard
+  if (/discard/i.test(lc)) { const m = lc.match(/(\d+)\s+cards?/); return { kind: 'discardRandom', count: m ? +m[1] : 1 }; }
+  // tokens
+  if (/create/i.test(lc) && /token/i.test(lc)) return { kind: 'token', token: 'soldier', count: 1 };
+  // fallback: treat as draw 1
+  return { kind: 'draw', count: 1 };
+}
+
+function parseEtb(oracle) {
+  if (!oracle) return null;
+  const lc = oracle.toLowerCase();
+  // Standard ETB triggers
+  if (/when .* enters/i.test(lc) || /enters the battlefield/i.test(lc)) {
+    const draw = lc.match(/draw\s+(\w+)\s+cards?/);
+    if (draw) { const n = parseInt(draw[1]) || 1; return { kind: 'draw', count: n }; }
+    if (/create/i.test(lc) && /token/i.test(lc)) return { kind: 'token', token: 'soldier', count: 1 };
+    if (/gain\s+(\d+)\s+life/i.test(lc)) { const m = lc.match(/(\d+)/); return { kind: 'gainLife', amount: m ? +m[1] : 2 }; }
+    if (/deals?\s+(\d+)\s+damage/i.test(lc)) { const m = lc.match(/(\d+)/); return { kind: 'damageAny', amount: m ? +m[1] : 1 }; }
+    if (/destroy target/i.test(lc)) return { kind: 'destroyCreature' };
+    if (/return target.*hand/i.test(lc)) return { kind: 'bounceCreature' };
+    return null;
+  }
+  return null;
+}
+
+function parseAttackTrigger(oracle) {
+  if (!oracle) return null;
+  const lc = oracle.toLowerCase();
+  if (!/when .* attacks/i.test(lc) && !/whenever .* attacks/i.test(lc)) return null;
+  const dmg = lc.match(/deals?\s+(\d+)\s+damage/);
+  if (dmg) return { kind: 'damageAny', amount: +dmg[1] };
+  if (/create/i.test(lc) && /token/i.test(lc)) return { kind: 'token', token: 'soldier', count: 1 };
+  const draw = lc.match(/draw\s+(\w+)\s+cards?/);
+  if (draw) return { kind: 'draw', count: parseInt(draw[1]) || 1 };
+  if (/gain\s+(\d+)\s+life/i.test(lc)) { const m = lc.match(/(\d+)/); return { kind: 'gainLife', amount: m ? +m[1] : 1 }; }
+  return null;
+}
+
+/* ── Deck archetype definitions ────────────────────────────── */
+const DECK_ARCHETYPES = {
+  white:  { name: 'Mono-White Aggro',     color: 'W',  aggression: 0.75, plan: 'attack',    query: 'c:w -t:land f:standard' },
+  blue:   { name: 'Mono-Blue Tempo',      color: 'U',  aggression: 0.5,  plan: 'tempo',     query: 'c:u -t:land f:standard' },
+  black:  { name: 'Mono-Black Control',   color: 'B',  aggression: 0.4,  plan: 'attrition',  query: 'c:b -t:land f:standard' },
+  red:    { name: 'Mono-Red Burn',        color: 'R',  aggression: 0.9,  plan: 'burn',       query: 'c:r -t:land f:standard' },
+  green:  { name: 'Mono-Green Stompy',    color: 'G',  aggression: 0.7,  plan: 'stompy',     query: 'c:g -t:land f:standard' },
+  boros:  { name: 'Boros Aggro',          color: 'RW', aggression: 0.8,  plan: 'swarm',      query: 'c>=rw -t:land f:standard' },
+};
+
+const CARD_DB = {};   // id → simplified card
+const DECK_POOLS = {}; // archetype key → [simplified cards]
+const DECKS = {};      // archetype key → { name, cards: [ids], ... }
+
+const TOKENS = {
+  soldier: { id:'tok_soldier', name:'Soldier Token', type:'creature', cost:0, power:1, toughness:1, keywords:['vigilance'], oracle:'', imageNormal:'', artCrop:'', rating:1, token:true, spell:null, etb:null },
+  goblin:  { id:'tok_goblin',  name:'Goblin Token',  type:'creature', cost:0, power:1, toughness:1, keywords:['haste'],     oracle:'', imageNormal:'', artCrop:'', rating:1, token:true, spell:null, etb:null },
+};
+
+const BASIC_LAND_NAMES = {
+  W: 'Plains', U: 'Island', B: 'Swamp', R: 'Mountain', G: 'Forest',
+  RW: 'Mountain', // Boros uses mountains (could be either)
+};
+const LAND_DB = {}; // landName → simplified land card object
+
+async function loadBasicLands(statusEl) {
+  const names = [...new Set(Object.values(BASIC_LAND_NAMES))];
+  for (const name of names) {
+    if (statusEl) statusEl.textContent = `Loading ${name}…`;
+    const url = `${SF}/cards/named?exact=${encodeURIComponent(name)}`;
+    const raw = await sfFetch(url);
+    if (!raw || raw.object !== 'card') continue;
+    LAND_DB[name] = {
+      id: 'land_' + name.toLowerCase(),
+      name: raw.name,
+      type: 'land',
+      typeLine: raw.type_line || '',
+      cost: 0,
+      power: 0, toughness: 0,
+      keywords: [],
+      oracle: raw.oracle_text || '',
+      imageNormal: sfImage(raw),
+      artCrop: sfImage(raw),  // Use full card image for lands — more recognizable
+      rating: 0, spell: null, etb: null, token: false,
+      isBasicLand: true,
+    };
+    CARD_DB['land_' + name.toLowerCase()] = LAND_DB[name];
+  }
+}
+
+/* ── Load real cards from Scryfall ─────────────────────────── */
+async function loadDeckCatalog(statusEl) {
+  const keys = Object.keys(DECK_ARCHETYPES);
+  for (let i = 0; i < keys.length; i++) {
+    const key = keys[i];
+    const arch = DECK_ARCHETYPES[key];
+    if (statusEl) statusEl.textContent = `Loading ${arch.name} (${i + 1}/${keys.length})…`;
+    const pool = await sfSearch(arch.query, 2);
+    const validCards = pool
+      .map(simplifyCard)
+      .filter(c => c && c.type !== 'land' && c.type !== 'unknown' && c.imageNormal);
+
+    // Store in DB
+    for (const c of validCards) CARD_DB[c.id] = c;
+    DECK_POOLS[key] = validCards;
+
+    // Build a 30-card deck: pick top cards by CMC curve
+    const creatures = validCards.filter(c => c.type === 'creature').slice(0, 40);
+    const spells = validCards.filter(c => c.type === 'instant' || c.type === 'sorcery').slice(0, 20);
+    const others = validCards.filter(c => c.type !== 'creature' && c.type !== 'instant' && c.type !== 'sorcery').slice(0, 10);
+
+    const picked = [];
+    // 18 creatures, 8 spells, 4 others (or fill from available)
+    const addFromPool = (src, target) => { for (const c of src) { if (picked.length >= target) break; picked.push(c); } };
+    addFromPool(creatures, 18);
+    addFromPool(spells, 26);
+    addFromPool(others, 30);
+    // If still short, add more creatures
+    for (const c of validCards) { if (picked.length >= 30) break; if (!picked.includes(c)) picked.push(c); }
+
+    // Build deck based on format
+    const fmt = getFormat();
+    const targetSize = fmt === 'commander' ? 100 : 60;
+    const maxCopies = fmt === 'commander' ? 1 : 3;
+    const uniqueCount = Math.min(picked.length, Math.ceil(targetSize / maxCopies));
+    const uniqueCards = picked.slice(0, uniqueCount);
+    const deckCards = [];
+    for (const c of uniqueCards) {
+      for (let cp = 0; cp < maxCopies && deckCards.length < targetSize; cp++) deckCards.push(c.id);
+    }
+    // Fill remaining if needed
+    let fillIdx = 0;
+    while (deckCards.length < targetSize && uniqueCards.length > 0) {
+      deckCards.push(uniqueCards[fillIdx % uniqueCards.length].id);
+      fillIdx++;
+    }
+    DECKS[key] = {
+      name: arch.name,
+      theme: `${arch.name} — real Scryfall cards`,
+      color: arch.color,
+      aggression: arch.aggression,
+      plan: arch.plan,
+      cards: deckCards,
+    };
+  }
+  // Load basic lands
+  await loadBasicLands(statusEl);
+
+  // Add lands to each deck
+  for (const key of keys) {
+    const arch = DECK_ARCHETYPES[key];
+    const primaryColor = arch.color.charAt(0); // first color letter
+    const landName = BASIC_LAND_NAMES[arch.color] || BASIC_LAND_NAMES[primaryColor] || 'Plains';
+    const landId = 'land_' + landName.toLowerCase();
+    if (!CARD_DB[landId]) continue;
+
+    const fmt = getFormat();
+    const targetSize = fmt === 'commander' ? 100 : 60;
+    const landCount = fmt === 'commander' ? 37 : 20;
+
+    // Current deck has spells only — add lands
+    const currentCards = DECKS[key].cards;
+    const spellCount = targetSize - landCount;
+    // Trim spells to make room for lands
+    while (currentCards.length > spellCount) currentCards.pop();
+    // Add lands
+    for (let i = 0; i < landCount; i++) currentCards.push(landId);
+
+    // For multicolor decks, split lands between colors
+    if (arch.color.length > 1) {
+      const colors = arch.color.split('');
+      const half = Math.floor(landCount / colors.length);
+      // Remove the single-type lands we just added
+      while (currentCards.filter(id => id.startsWith('land_')).length > 0) {
+        const li = currentCards.findIndex(id => id.startsWith('land_'));
+        if (li >= 0) currentCards.splice(li, 1); else break;
+      }
+      for (const c of colors) {
+        const ln = BASIC_LAND_NAMES[c];
+        const lid = 'land_' + (ln || 'plains').toLowerCase();
+        for (let i = 0; i < half; i++) currentCards.push(lid);
+      }
+      // Fill remainder
+      while (currentCards.length < targetSize) {
+        currentCards.push('land_' + (BASIC_LAND_NAMES[colors[0]] || 'plains').toLowerCase());
+      }
+    }
+  }
+
+  if (statusEl) statusEl.textContent = `Loaded ${Object.keys(CARD_DB).length} cards across ${keys.length} archetypes.`;
+}
+
+/* ── Card template lookup ──────────────────────────────────── */
+function cardTemplate(id) {
+  return CARD_DB[id] || TOKENS[id] || LAND_DB[id?.replace('land_','')] || null;
+}
+
+/* ── Card instance ─────────────────────────────────────────── */
+function makeInstance(templateId, owner) {
+  const tpl = cardTemplate(templateId);
+  if (!tpl) { console.warn('Unknown card:', templateId); return null; }
+  return {
+    uid: `${templateId.slice(0, 8)}:${Math.random().toString(36).slice(2, 7)}`,
+    id: templateId,
+    owner,
+    name: tpl.name,
+    type: tpl.type,
+    cost: tpl.cost,
+    power: tpl.power || 0,
+    toughness: tpl.toughness || 0,
+    keywords: [...(tpl.keywords || [])],
+    oracle: tpl.oracle || '',
+    imageNormal: tpl.imageNormal || '',
+    artCrop: tpl.artCrop || '',
+    attackTrigger: tpl.attackTrigger || null,
+    rating: tpl.rating || 0,
+    token: !!tpl.token,
+    tapped: false,
+    summoningSick: tpl.type === 'creature' && !(tpl.keywords || []).some(k => k.toLowerCase() === 'haste'),
+    damage: 0,
+    tempPower: 0,
+    tempToughness: 0,
+    tempKeywords: [],
+    freezeTurns: 0,
+  };
+}
+
+/* ── Helpers ────────────────────────────────────────────────── */
+function effectivePower(c) { return (c.power || 0) + (c.tempPower || 0); }
+function effectiveToughness(c) { return (c.toughness || 0) + (c.tempToughness || 0); }
+function hasKW(c, kw) {
+  const kwl = kw.toLowerCase();
+  if (c?.keywords?.some(k => k.toLowerCase() === kwl)) return true;
+  if ((c?.tempKeywords || []).some(k => k.toLowerCase() === kwl)) return true;
+  // Check oracle text for keywords not in the keywords array
+  if (c?.oracle && c.oracle.toLowerCase().includes(kwl)) return true;
+  return false;
+}
+function isCreature(c) { return c?.type === 'creature'; }
+function isSpell(c) { return c?.type === 'instant' || c?.type === 'sorcery'; }
+function cardDisplayType(c) { if (!c) return 'card'; if (c.type === 'creature') return 'creature'; if (isSpell(c)) return 'spell'; if (c.type === 'land') return 'land'; return 'card'; }
+function opponentOf(match, idx) { return match.players[1 - idx]; }
+
+function getFormat() {
+  const sel = document.querySelector('#formatSelect');
+  return sel?.value === 'commander' ? 'commander' : 'standard';
+}
+function formatLife() { return getFormat() === 'commander' ? 40 : 20; }
+function formatDeckSize() { return getFormat() === 'commander' ? 100 : 60; }
+function formatCopies() { return getFormat() === 'commander' ? 1 : 3; }
+function formatLabel() { return getFormat() === 'commander' ? 'Commander (100 cards · 40 HP)' : 'Standard (60 cards · 20 HP)'; }
+
+/* ── Player / Match creation ───────────────────────────────── */
+function createPlayer(name, deckKey) {
+  const def = DECKS[deckKey];
+  if (!def) throw new Error('Unknown deck: ' + deckKey);
+  return {
+    name: def.name, deckKey, deck: def, life: formatLife(), maxMana: 0, mana: 0,
+    hand: [], library: [], battlefield: [], graveyard: [], exile: [],
+    handLimit: 7, landsPlayedThisTurn: 0, totalLands: 0,
+    stats: { spells: 0, attacks: 0, blocks: 0, damage: 0, kills: 0 },
+  };
+}
+
+function createMatch(seed, leftKey, rightKey) {
+  const rng = mulberry32(seed);
+  const pA = createPlayer(DECKS[leftKey].name, leftKey);
+  const pB = createPlayer(DECKS[rightKey].name, rightKey);
+  pA.library = shuffle(rng, pA.deck.cards.slice()).map(id => makeInstance(id, pA.name)).filter(Boolean);
+  pB.library = shuffle(rng, pB.deck.cards.slice()).map(id => makeInstance(id, pB.name)).filter(Boolean);
+  pA.hand = pA.library.splice(0, 7);
+  pB.hand = pB.library.splice(0, 7);
+  return { seed, rng, started: false, finished: false, turn: 0, active: 0, phase: 'setup', players: [pA, pB], winner: null, log: [], _announceQueue: [], speed: 600, gameNumber: 0 };
+}
+
+/* ── App state ─────────────────────────────────────────────── */
+const state = { match: null, running: false, paused: false, runId: 0, series: { games: 0, wins: {} }, autoRematch: true };
+
+function logEvent(match, kind, msg) {
+  if (!match) return;
+  match.log.push({ at: Date.now(), turn: match.turn, phase: match.phase, kind, msg });
+  if (match.log.length > 80) match.log = match.log.slice(-60);
+}
+
+/* ── Drawing / untap / discard ─────────────────────────────── */
+function drawCard(p) { if (!p.library.length) return null; const c = p.library.shift(); p.hand.push(c); return c; }
+function untapAll(p) {
+  p.landsPlayedThisTurn = 0;
+  for (const c of p.battlefield) {
+    // Clear summoning sickness at start of controller's turn
+    if (c.summoningSick) c.summoningSick = false;
+    // Untap unless frozen
+    if (c.freezeTurns > 0) { c.freezeTurns--; } else { c.tapped = false; }
+  }
+}
+function clearEOT(p) { for (const c of p.battlefield) { c.tempPower = 0; c.tempToughness = 0; c.tempKeywords = []; } }
+function discardToLimit(match, pi) {
+  const p = match.players[pi];
+  while (p.hand.length > p.handLimit) {
+    p.hand.sort((a, b) => evalCard(a, match, pi) - evalCard(b, match, pi));
+    const d = p.hand.shift(); p.graveyard.push(d);
+  }
+}
+
+/* ── AI evaluation ─────────────────────────────────────────── */
+/* ── AI Brain ───────────────────────────────────────────────── */
+function creatureValue(c) {
+  let s = effectivePower(c) * 2 + effectiveToughness(c);
+  if (hasKW(c, 'flying')) s += 4; if (hasKW(c, 'trample')) s += 3; if (hasKW(c, 'lifelink')) s += 4;
+  if (hasKW(c, 'deathtouch')) s += 5; if (hasKW(c, 'first strike')) s += 3; if (hasKW(c, 'double strike')) s += 6;
+  if (hasKW(c, 'haste')) s += 2; if (hasKW(c, 'menace')) s += 3; if (hasKW(c, 'vigilance')) s += 2;
+  if (hasKW(c, 'hexproof')) s += 3; if (hasKW(c, 'indestructible')) s += 5; if (hasKW(c, 'reach')) s += 1;
+  return s + Math.max(0, 6 - c.cost);
+}
+
+function boardStrength(player) {
+  return player.battlefield.filter(isCreature).reduce((s, c) => s + effectivePower(c), 0);
+}
+
+function canSwingLethal(me, them) {
+  const myAtk = me.battlefield.filter(isCreature).filter(c => !c.tapped && !c.summoningSick && !hasKW(c, 'defender'));
+  const theirBlockers = them.battlefield.filter(isCreature).filter(c => !c.tapped);
+  // Count evasive damage (flying attackers vs non-flying/reach blockers)
+  let evasiveDmg = 0, groundDmg = 0;
+  for (const a of myAtk) {
+    if (hasKW(a, 'flying') && !theirBlockers.some(b => hasKW(b, 'flying') || hasKW(b, 'reach'))) {
+      evasiveDmg += effectivePower(a);
+    } else {
+      groundDmg += effectivePower(a);
+    }
+  }
+  // Unblockable ground damage = excess attackers beyond blockers
+  const groundBlockable = Math.min(groundDmg, theirBlockers.filter(b => !hasKW(b, 'flying')).length * 4);
+  const estimatedDmg = evasiveDmg + Math.max(0, groundDmg - groundBlockable);
+  return estimatedDmg >= them.life;
+}
+
+function evalCard(card, match, pi) {
+  const me = match.players[pi], them = opponentOf(match, pi);
+  const ec = them.battlefield.filter(isCreature), mc = me.battlefield.filter(isCreature);
+  const sp = cardTemplate(card.id)?.spell;
+
+  if (isCreature(card)) {
+    let v = creatureValue(card);
+    // Urgency: need creatures on board
+    if (mc.length === 0) v += 8;
+    else if (mc.length < ec.length) v += 4;
+    // Haste is great when we can attack immediately
+    if (hasKW(card, 'haste') && them.life <= effectivePower(card) + boardStrength(me)) v += 6;
+    // Cheap creatures early, expensive ones late
+    if (match.turn <= 3 && card.cost <= 2) v += 3;
+    if (match.turn >= 6 && card.cost >= 4) v += 2;
+    return v;
+  }
+
+  if (isSpell(card) && sp) {
+    // Removal is king when opponent has threats
+    if (sp.kind === 'destroyCreature' || sp.kind === 'exileCreature') {
+      if (ec.length) return 12 + Math.max(...ec.map(c => creatureValue(c))) / 2;
+      return 2; // No targets = bad hold
+    }
+    if (sp.kind === 'destroyAllCreatures') {
+      // Only wrath when behind on board
+      return ec.length > mc.length + 1 ? 15 : (ec.length > mc.length ? 8 : 1);
+    }
+    if (sp.kind === 'bounceCreature') return ec.length ? 8 + Math.max(...ec.map(c => c.cost)) : 2;
+    if (sp.kind === 'damageAny') {
+      // Direct damage: prefer face if it's lethal, otherwise remove threats
+      if (them.life <= sp.amount) return 20; // LETHAL
+      return ec.length ? 9 : 7; // Burn face or remove creature
+    }
+    if (sp.kind === 'damageCreature') return ec.length ? 9 : 2;
+    if (sp.kind === 'damageAll') return 8 + Math.min(sp.amount, them.life) / 2;
+    if (sp.kind === 'draw') return me.hand.length <= 2 ? 10 : (me.hand.length <= 4 ? 6 : 3);
+    if (sp.kind === 'gainLife') return me.life <= 8 ? 7 : 2;
+    if (sp.kind === 'lifeDrain') return 7 + (me.life <= 10 ? 3 : 0);
+    if (sp.kind === 'buffCreature') return mc.length ? 7 : 1;
+    if (sp.kind === 'discardRandom') return them.hand.length >= 3 ? 7 : 3;
+    if (sp.kind === 'token') return 6;
+    return 4;
+  }
+  return 2;
+}
+
+function chooseTarget(card, match, pi) {
+  const me = match.players[pi], them = opponentOf(match, pi);
+  const sp = cardTemplate(card.id)?.spell;
+  if (!sp) return null;
+  const ec = them.battlefield.filter(isCreature).slice().sort((a, b) => creatureValue(b) - creatureValue(a));
+  const mc = me.battlefield.filter(isCreature).slice().sort((a, b) => creatureValue(b) - creatureValue(a));
+
+  if (sp.kind === 'damageAny') {
+    // Lethal to face? Always go face.
+    if (them.life <= sp.amount) return them;
+    // Kill their best creature if possible
+    const killable = ec.filter(c => (effectiveToughness(c) - c.damage) <= sp.amount);
+    if (killable.length) return killable.sort((a, b) => creatureValue(b) - creatureValue(a))[0];
+    // Otherwise go face for pressure
+    return them;
+  }
+  if (sp.kind === 'damageCreature') {
+    const killable = ec.filter(c => (effectiveToughness(c) - c.damage) <= sp.amount);
+    return killable.length ? killable.sort((a, b) => creatureValue(b) - creatureValue(a))[0] : ec[0] || null;
+  }
+  if (sp.kind === 'destroyCreature' || sp.kind === 'exileCreature' || sp.kind === 'bounceCreature') {
+    return ec[0] || null; // Already sorted by value
+  }
+  if (sp.kind === 'buffCreature') {
+    // Buff the creature that's about to attack (untapped, not sick)
+    const attackReady = mc.filter(c => !c.tapped && !c.summoningSick);
+    return attackReady[0] || mc[0] || null;
+  }
+  return null;
+}
+
+/* ── Spell resolution ──────────────────────────────────────── */
+function resolveSpell(match, pi, card, target) {
+  const me = match.players[pi], them = opponentOf(match, pi);
+  const sp = cardTemplate(card.id)?.spell;
+  if (!sp) return;
+  me.stats.spells++;
+  switch (sp.kind) {
+    case 'damageAny': case 'damageCreature': {
+      if (target?.life != null) { target.life -= sp.amount; me.stats.damage += sp.amount; logEvent(match, 'info', `${card.name} deals ${sp.amount} to ${target.name}.`); }
+      else if (target && isCreature(target)) { target.damage += sp.amount; me.stats.damage += sp.amount; logEvent(match, 'info', `${card.name} hits ${target.name} for ${sp.amount}.`); }
+      break;
+    }
+    case 'damageAll': { them.life -= sp.amount; me.stats.damage += sp.amount; logEvent(match, 'info', `${card.name} burns opponent for ${sp.amount}.`); break; }
+    case 'destroyCreature': case 'exileCreature': {
+      if (target && isCreature(target)) {
+        const oi = match.players[0].battlefield.includes(target) ? 0 : 1;
+        const dest = sp.kind === 'exileCreature' ? 'exile' : 'graveyard';
+        const idx = match.players[oi].battlefield.indexOf(target);
+        if (idx >= 0) { match.players[oi].battlefield.splice(idx, 1); match.players[oi][dest].push(target); }
+        logEvent(match, 'bad', `${target.name} ${dest === 'exile' ? 'exiled' : 'destroyed'}.`);
+      } break;
+    }
+    case 'destroyAllCreatures': {
+      for (const p of match.players) { const dead = p.battlefield.filter(isCreature); p.battlefield = p.battlefield.filter(c => !isCreature(c)); p.graveyard.push(...dead); }
+      logEvent(match, 'bad', `All creatures destroyed!`); break;
+    }
+    case 'bounceCreature': {
+      if (target && isCreature(target)) {
+        const oi = match.players[0].battlefield.includes(target) ? 0 : 1;
+        const idx = match.players[oi].battlefield.indexOf(target);
+        if (idx >= 0) { match.players[oi].battlefield.splice(idx, 1); match.players[oi].hand.push(target); target.tapped = false; target.summoningSick = false; }
+        logEvent(match, 'info', `${target.name} bounced.`);
+      } break;
+    }
+    case 'draw': { for (let i = 0; i < sp.count; i++) drawCard(me); logEvent(match, 'info', `${me.name} draws ${sp.count}.`); break; }
+    case 'gainLife': { me.life += sp.amount; logEvent(match, 'good', `${me.name} gains ${sp.amount} life.`); break; }
+    case 'lifeDrain': { them.life -= sp.amount; me.life += sp.amount; me.stats.damage += sp.amount; logEvent(match, 'good', `${me.name} drains ${sp.amount}.`); break; }
+    case 'discardRandom': { const n = Math.min(sp.count, them.hand.length); for (let i = 0; i < n; i++) { const ri = Math.floor(Math.random() * them.hand.length); them.graveyard.push(them.hand.splice(ri, 1)[0]); } logEvent(match, 'warn', `${them.name} discards ${n}.`); break; }
+    case 'buffCreature': { if (target) { target.tempPower += sp.power; target.tempToughness += sp.toughness; logEvent(match, 'info', `${target.name} gets ${sp.power >= 0 ? '+' : ''}${sp.power}/${sp.toughness >= 0 ? '+' : ''}${sp.toughness}.`); } break; }
+    case 'token': { me.battlefield.push(makeInstance('soldier', me.name) || makeInstance('goblin', me.name)); logEvent(match, 'good', `${me.name} creates a token.`); break; }
+    default: { drawCard(me); logEvent(match, 'info', `${card.name} resolves (draw 1 fallback).`); }
+  }
+}
+
+function resolveEtb(match, pi, card) {
+  const etb = cardTemplate(card.id)?.etb;
+  if (!etb) return;
+  const me = match.players[pi], them = opponentOf(match, pi);
+  if (etb.kind === 'draw') { for (let i = 0; i < etb.count; i++) drawCard(me); logEvent(match, 'info', `${card.name} ETB: draw ${etb.count}.`); }
+  else if (etb.kind === 'gainLife') { me.life += etb.amount; logEvent(match, 'good', `${card.name} ETB: gain ${etb.amount} life.`); }
+  else if (etb.kind === 'damageAny') { them.life -= etb.amount; me.stats.damage += etb.amount; logEvent(match, 'info', `${card.name} ETB: ${etb.amount} damage.`); }
+  else if (etb.kind === 'token') { me.battlefield.push(makeInstance('soldier', me.name)); logEvent(match, 'good', `${card.name} ETB: token.`); }
+}
+
+/* ── Cast card ─────────────────────────────────────────────── */
+function castCard(match, pi, card, target) {
+  const p = match.players[pi];
+  const idx = p.hand.indexOf(card); if (idx < 0) return false;
+  if (card.cost > p.mana) return false;
+  p.hand.splice(idx, 1); p.mana -= card.cost;
+  if (isCreature(card)) {
+    p.battlefield.push(card); card.summoningSick = !hasKW(card, 'haste');
+    resolveEtb(match, pi, card);
+    logEvent(match, 'good', `${p.name} plays ${card.name}.`);
+  } else {
+    resolveSpell(match, pi, card, target); p.graveyard.push(card);
+    logEvent(match, 'info', `${p.name} casts ${card.name}.`);
+  }
+  if (match._announceQueue) match._announceQueue.push({
+    name: card.name, art: card.artCrop || card.imageNormal, player: p.name,
+    action: isCreature(card) ? 'plays' : 'casts',
+    pt: isCreature(card) ? `${effectivePower(card)}/${effectiveToughness(card)}` : card.type
+  });
+  return true;
+}
+
+/* ── Remove dead creatures ─────────────────────────────────── */
+function removeDeadCreatures(match) {
+  for (const p of match.players) {
+    for (let i = p.battlefield.length - 1; i >= 0; i--) {
+      const c = p.battlefield[i];
+      if (isCreature(c) && (c.damage >= effectiveToughness(c) || effectiveToughness(c) <= 0)) {
+        p.battlefield.splice(i, 1); p.graveyard.push(c);
+        logEvent(match, 'bad', `${c.name} dies.`);
+      }
+    }
+  }
+}
+
+function checkGameOver(match) {
+  const alive = match.players.filter(p => p.life > 0);
+  if (alive.length <= 1) { match.finished = true; match.winner = alive[0] || null; match.phase = 'finished'; logEvent(match, 'good', match.winner ? `${match.winner.name} wins!` : 'Draw!'); return true; }
+  return false;
+}
+
+/* ── Combat AI ──────────────────────────────────────────────── */
+function chooseAttackers(match, pi) {
+  const me = match.players[pi], them = opponentOf(match, pi);
+  const eligible = me.battlefield.filter(c => isCreature(c) && !c.tapped && !c.summoningSick && !hasKW(c, 'defender'));
+  if (!eligible.length) return [];
+
+  const theirBlockers = them.battlefield.filter(c => isCreature(c) && !c.tapped);
+
+  // ALWAYS go all-in if we can swing lethal
+  if (canSwingLethal(me, them)) {
+    logEvent(match, 'warn', `${me.name} sees lethal — all-out attack!`);
+    return eligible;
+  }
+
+  // DEFAULT: attack with everything. Then pull back creatures that would die for nothing.
+  const atk = [...eligible];
+  const holdBack = [];
+
+  for (const c of eligible) {
+    const pow = effectivePower(c);
+    const tough = effectiveToughness(c);
+
+    // Always send these — no reason to hold back
+    if (hasKW(c, 'vigilance')) continue; // stays in atk, can still block
+    if (hasKW(c, 'flying') && !theirBlockers.some(b => hasKW(b, 'flying') || hasKW(b, 'reach'))) continue; // unblockable
+    if (hasKW(c, 'trample') && pow >= 3) continue; // damage gets through
+    if (hasKW(c, 'menace') && theirBlockers.length < 2) continue; // can't be blocked
+    if (hasKW(c, 'deathtouch')) continue; // forces bad trades
+    if (pow >= 4) continue; // big threats should always pressure
+
+    // Consider holding back ONLY if:
+    // 1. We're significantly behind on board and need blockers
+    // 2. AND this creature would die to their best blocker without killing it
+    if (theirBlockers.length > eligible.length + 1) {
+      const worstMatchup = theirBlockers.find(b =>
+        effectivePower(b) >= tough && effectiveToughness(b) > pow && !hasKW(c, 'deathtouch')
+      );
+      if (worstMatchup && pow <= 1) {
+        holdBack.push(c); // tiny creature would just die, keep for blocking
+      }
+    }
+  }
+
+  // Remove held-back creatures
+  for (const h of holdBack) {
+    const idx = atk.indexOf(h);
+    if (idx >= 0) atk.splice(idx, 1);
+  }
+
+  // Always attack with at least half our creatures
+  if (atk.length < Math.ceil(eligible.length / 2)) {
+    const sorted = eligible.slice().sort((a, b) => creatureValue(b) - creatureValue(a));
+    for (const c of sorted) {
+      if (!atk.includes(c)) atk.push(c);
+      if (atk.length >= Math.ceil(eligible.length / 2)) break;
+    }
+  }
+
+  return atk;
+}
+
+function chooseBlockers(match, di, attackers) {
+  const def = match.players[di];
+  const blocks = new Map();
+  const avail = def.battlefield.filter(c => isCreature(c) && !c.tapped);
+  const totalIncoming = attackers.reduce((s, a) => s + effectivePower(a), 0);
+
+  // Sort attackers by threat (highest power first)
+  const sorted = attackers.slice().sort((a, b) => effectivePower(b) - effectivePower(a));
+
+  for (const atk of sorted) {
+    const atkPow = effectivePower(atk);
+    const atkTough = effectiveToughness(atk);
+    const legal = avail.filter(b => !blocks.has(b.uid) && (!hasKW(atk, 'flying') || hasKW(b, 'flying') || hasKW(b, 'reach')));
+    if (!legal.length) continue;
+
+    let best = null, bestScore = -999;
+    for (const b of legal) {
+      let s = 0;
+      const bPow = effectivePower(b), bTough = effectiveToughness(b);
+      const canKill = bPow >= atkTough || hasKW(b, 'deathtouch');
+      const survives = bTough > atkPow || hasKW(b, 'indestructible');
+
+      // Favorable trade: we kill them and survive
+      if (canKill && survives) s += 12;
+      // Even trade: we kill them but die too (worth it for big threats)
+      else if (canKill && !survives) s += 6 + (atkPow >= 4 ? 3 : 0);
+      // We survive but can't kill: still prevents damage
+      else if (survives) s += 4;
+      // Chump block: only worth it for big attackers that would kill us
+      else if (atkPow >= 4 || (totalIncoming >= def.life)) s += 2;
+      // Not worth blocking small stuff with valuable creatures
+      else s -= 1;
+
+      // Deathtouch blockers are amazing
+      if (hasKW(b, 'deathtouch') && !canKill) s += 5;
+      // Don't throw away big creatures on small attacks
+      if (creatureValue(b) > creatureValue(atk) * 1.5 && !canKill) s -= 4;
+
+      if (s > bestScore) { bestScore = s; best = b; }
+    }
+
+    // Block if it's a good trade or we're about to die
+    if (best && (bestScore >= 2 || totalIncoming >= def.life)) {
+      blocks.set(best.uid, atk);
+      avail.splice(avail.indexOf(best), 1);
+    }
+  }
+  return blocks;
+}
+
+function combatDamage(match, attackers, blocks) {
+  const atkPlayer = match.players[match.active], defPlayer = opponentOf(match, match.active);
+  for (const atk of attackers) {
+    const blockerEntry = [...blocks.entries()].find(([, a]) => a === atk);
+    const blocker = blockerEntry ? defPlayer.battlefield.find(c => c.uid === blockerEntry[0]) : null;
+    const ap = effectivePower(atk);
+    if (!blocker) {
+      defPlayer.life -= ap; atkPlayer.stats.damage += ap;
+      logEvent(match, 'bad', `${atk.name} deals ${ap} damage to ${defPlayer.name}! (${defPlayer.life} HP)`);
+      if (hasKW(atk, 'lifelink')) { atkPlayer.life += ap; logEvent(match, 'good', `${atk.name} lifelink: +${ap} HP`); }
+    } else {
+      blocker.damage += (hasKW(atk, 'deathtouch') ? 999 : ap);
+      atk.damage += (hasKW(blocker, 'deathtouch') ? 999 : effectivePower(blocker));
+      if (hasKW(atk, 'trample')) { const excess = ap - effectiveToughness(blocker); if (excess > 0) { defPlayer.life -= excess; atkPlayer.stats.damage += excess; } }
+      if (hasKW(atk, 'lifelink')) atkPlayer.life += ap;
+      if (hasKW(blocker, 'lifelink')) defPlayer.life += effectivePower(blocker);
+    }
+  }
+}
+
+/* ── Render ─────────────────────────────────────────────────── */
+function drawCardNode(card, compact = false) {
+  const el = document.createElement('div');
+  el.className = `card ${cardDisplayType(card)}${card.tapped ? ' tapped' : ''}`;
+  if (compact) el.style.opacity = '0.7';
+  const art = card.artCrop || card.imageNormal;
+  if (art) {
+    el.style.backgroundImage = `linear-gradient(to bottom, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.75) 65%), url(${art})`;
+    el.style.backgroundSize = 'cover';
+    el.style.backgroundPosition = 'center top';
+    el.classList.add('has-art');
+  }
+  const kws = [...new Set([...(card.keywords || []), ...(card.tempKeywords || [])])].map(k => k.toLowerCase());
+  const badgeColor = kws.includes('flying') ? 'blue' : kws.includes('trample') ? 'green' : kws.includes('lifelink') ? 'purple' : kws.includes('deathtouch') ? 'red' : 'yellow';
+  el.innerHTML = `
+    <div class="badge ${badgeColor}">${card.cost}</div>
+    <div class="name">${card.name}</div>
+    <div class="stats">${isCreature(card) ? `<span>${effectivePower(card)}/${effectiveToughness(card)}</span>` : `<span>${card.type}</span>`}<span>${kws.slice(0, 2).join(' ')}</span></div>
+  `;
+  return el;
+}
+
+function renderSeat(match, idx) {
+  const p = match.players[idx], seat = idx === 0 ? $('#seat1') : $('#seat2');
+  seat.innerHTML = '';
+  seat.innerHTML = `
+    <div class="seatHeader"><div><div class="seatName">${p.name}</div></div><div class="lifeChip ${p.life <= 6 ? 'bad' : 'good'}">❤ ${p.life}</div></div>
+    <div class="lifeRow">
+      <div class="lifeChip">Mana ${p.mana}/${p.maxMana}</div>
+      <div class="lifeChip">Lib ${p.library.length}</div>
+      <div class="lifeChip">Hand ${p.hand.length}</div>
+      <div class="lifeChip">GY ${p.graveyard.length}</div>
+      <div class="lifeChip">${match.active === idx ? '⚔ Active' : 'Waiting'}</div>
+    </div>
+    <div class="zones">
+      <div class="zonePill"><strong>${p.stats.spells}</strong> spells</div>
+      <div class="zonePill"><strong>${p.stats.attacks}</strong> atk</div>
+      <div class="zonePill"><strong>${p.stats.damage}</strong> dmg</div>
+      <div class="zonePill"><strong>${p.stats.kills}</strong> kills</div>
+    </div>
+  `;
+  // Lands row
+  const lands = p.battlefield.filter(c => c.type === 'land');
+  const nonLands = p.battlefield.filter(c => c.type !== 'land');
+  if (lands.length) {
+    const landLabel = document.createElement('div'); landLabel.className = 'subtle'; landLabel.style.marginTop = '10px'; landLabel.textContent = `Lands (${lands.length})`; seat.appendChild(landLabel);
+    const landRow = document.createElement('div'); landRow.className = 'battlefield lands-row';
+    for (const c of lands) { const node = drawCardNode(c); node.classList.add('land-card'); landRow.appendChild(node); }
+    seat.appendChild(landRow);
+  }
+  // Creatures + other permanents
+  const bfLabel = document.createElement('div'); bfLabel.className = 'subtle'; bfLabel.style.marginTop = '10px'; bfLabel.textContent = nonLands.length ? `Battlefield (${nonLands.length})` : 'Battlefield'; seat.appendChild(bfLabel);
+  const bf = document.createElement('div'); bf.className = 'battlefield';
+  for (const c of nonLands) bf.appendChild(drawCardNode(c));
+  if (!nonLands.length && !lands.length) { const e = document.createElement('div'); e.className = 'subtle'; e.textContent = 'Empty'; bf.appendChild(e); }
+  seat.appendChild(bf);
+  const hLabel = document.createElement('div'); hLabel.className = 'subtle'; hLabel.style.marginTop = '8px'; hLabel.textContent = `Hand (${p.hand.length})`; seat.appendChild(hLabel);
+  const hd = document.createElement('div'); hd.className = 'battlefield';
+  for (const c of p.hand.slice(0, 8)) hd.appendChild(drawCardNode(c, true));
+  seat.appendChild(hd);
+}
+
+function renderLog(match) {
+  const log = $('#log'); log.innerHTML = '';
+  for (const e of match.log.slice(-30).reverse()) {
+    const el = document.createElement('div'); el.className = `entry ${e.kind || 'info'}`;
+    el.innerHTML = `<span class="time">T${e.turn} ${e.phase}</span>${e.msg}`; log.appendChild(el);
+  }
+}
+
+function render(match) {
+  if (!match || !match.players || !match.players.length) return;
+  const root = document.querySelector('.app');
+  if (root) root.classList.toggle('match-active', !!match.started && !match.finished);
+  const phase = match.phase || 'setup';
+  $('#statusBar').textContent = match.finished
+    ? `Game over — ${match.winner?.name || 'Draw'} in ${match.turn} turns`
+    : state.running ? `Turn ${match.turn} · ${phase}` : `Ready · Seed ${match.seed || '?'}`;
+  $('#phaseBox').textContent = `Phase: ${phase.toUpperCase()}`;
+  $('#matchBox').textContent = match.finished ? `Winner: ${match.winner?.name || 'Draw'}` : `Active: ${match.players[match.active]?.name || '—'}`;
+  $('#summaryBox').textContent = `${match.players[0]?.name || '?'} vs ${match.players[1]?.name || '?'} · ${formatLabel()} · Game #${match.gameNumber || 1}`;
+  $('#matchMeta').textContent = `Seed ${match.seed || '?'} · T${match.turn}`;
+  renderSeat(match, 0); renderSeat(match, 1); renderLog(match);
+}
+
+/* ── Overlays ──────────────────────────────────────────────── */
+function showOverlay(html, durationMs = 2000) {
+  return new Promise(resolve => {
+    const el = document.createElement('div');
+    el.className = 'game-overlay';
+    el.innerHTML = html;
+    document.querySelector('.board')?.appendChild(el);
+    setTimeout(() => { el.remove(); resolve(); }, durationMs);
+  });
+}
+
+/* ── Card play announcement ─────────────────────────────── */
+async function drainAnnouncements(match) {
+  if (!match._announceQueue?.length) return;
+  const queue = match._announceQueue.splice(0);
+  for (const a of queue) {
+    const artHtml = a.art ? `<img src="${a.art}" style="width:250px;height:349px;border-radius:16px;border:2px solid rgba(255,255,255,0.12);box-shadow:0 16px 50px rgba(0,0,0,0.7);object-fit:cover;" />` : '';
+    const ptHtml = a.pt ? `<div style="font-size:26px;font-weight:900;color:#fbbf24;margin-top:6px;text-shadow:0 2px 8px rgba(0,0,0,0.8);">${a.pt}</div>` : '';
+    const playerColor = match.players[0]?.name === a.player ? '#8b5cf6' : '#22c55e';
+    await showOverlay(`
+      <div style="display:flex;flex-direction:column;align-items:center;gap:10px;">
+        <div style="display:inline-flex;align-items:center;gap:8px;padding:6px 14px;border-radius:999px;background:${playerColor};font-size:13px;font-weight:700;color:#fff;">${a.player} ${a.action}</div>
+        ${artHtml}
+        <div style="font-size:22px;font-weight:800;color:#fff;text-align:center;max-width:320px;text-shadow:0 2px 8px rgba(0,0,0,0.6);">${a.name}</div>
+        ${ptHtml}
+      </div>
+    `, 1100);
+  }
+}
+
+/* ── Turn loop ─────────────────────────────────────────────── */
+async function playBestCards(match, pi, maxPlays, filter = null) {
+  const me = match.players[pi];
+  let plays = 0;
+  for (let i = 0; i < maxPlays && !match.finished; i++) {
+    const playable = me.hand
+      .filter(c => c.cost <= me.mana && (!filter || filter(c)))
+      .sort((a, b) => evalCard(b, match, pi) - evalCard(a, match, pi));
+    if (!playable.length) break;
+    const best = playable[0];
+    // Don't play low-value cards
+    if (evalCard(best, match, pi) <= 1) break;
+    const target = chooseTarget(best, match, pi);
+    castCard(match, pi, best, target);
+    removeDeadCreatures(match); if (checkGameOver(match)) return;
+    render(match); await drainAnnouncements(match); await sleep(300);
+    plays++;
+  }
+  return plays;
+}
+
+async function takeTurn(match) {
+  if (match.finished) return;
+  const pi = match.active, me = match.players[pi], them = opponentOf(match, pi);
+  match.turn++; match.phase = 'untap';
+  logEvent(match, 'info', `── Turn ${match.turn}: ${me.name} ──`);
+  untapAll(me);
+  // Mana comes from lands on battlefield
+  me.maxMana = me.battlefield.filter(c => c.type === 'land').length;
+  me.mana = me.maxMana;
+  const drawn = drawCard(me);
+  if (drawn) logEvent(match, 'info', `${me.name} draws ${drawn.name}.`);
+  match.phase = 'main1'; render(match); await sleep(400);
+
+  // ─── PLAY LAND ───
+  if (me.landsPlayedThisTurn === 0) {
+    const landInHand = me.hand.find(c => c.type === 'land');
+    if (landInHand) {
+      const li = me.hand.indexOf(landInHand);
+      me.hand.splice(li, 1);
+      me.battlefield.push(landInHand);
+      me.landsPlayedThisTurn = 1;
+      me.totalLands++;
+      me.maxMana = me.battlefield.filter(c => c.type === 'land').length;
+      me.mana = me.maxMana; // Refresh mana after playing land
+      logEvent(match, 'good', `🏔 ${me.name} plays ${landInHand.name}. (${me.maxMana} mana)`);
+      if (match._announceQueue) match._announceQueue.push({
+        name: landInHand.name, art: landInHand.artCrop || landInHand.imageNormal,
+        player: me.name, action: 'plays', pt: `${me.maxMana} mana`
+      });
+      render(match); await drainAnnouncements(match); await sleep(400);
+    }
+  }
+
+  // ─── MAIN PHASE 1: removal + setup ───
+  // Priority: removal spells to clear blockers before combat
+  await playBestCards(match, pi, 2, c => isSpell(c));
+  if (match.finished) return;
+  // Then play creatures (especially haste creatures before combat)
+  await playBestCards(match, pi, 2, c => isCreature(c) && hasKW(c, 'haste'));
+  if (match.finished) return;
+
+  // ─── COMBAT ───
+  match.phase = 'combat'; render(match); await sleep(500);
+  const atk = chooseAttackers(match, pi);
+  if (atk.length) {
+    for (const c of atk) {
+      c.tapped = !hasKW(c, 'vigilance'); me.stats.attacks++;
+      // Fire attack triggers
+      const atkTrig = cardTemplate(c.id)?.attackTrigger;
+      if (atkTrig) {
+        if (atkTrig.kind === 'damageAny') { them.life -= atkTrig.amount; me.stats.damage += atkTrig.amount; logEvent(match, 'info', `${c.name} attack trigger: ${atkTrig.amount} damage!`); }
+        else if (atkTrig.kind === 'token') { me.battlefield.push(makeInstance('soldier', me.name)); logEvent(match, 'good', `${c.name} attack trigger: token created!`); }
+        else if (atkTrig.kind === 'draw') { for (let d = 0; d < atkTrig.count; d++) drawCard(me); logEvent(match, 'info', `${c.name} attack trigger: draw ${atkTrig.count}!`); }
+        else if (atkTrig.kind === 'gainLife') { me.life += atkTrig.amount; logEvent(match, 'good', `${c.name} attack trigger: gain ${atkTrig.amount} life!`); }
+      }
+    }
+    logEvent(match, 'warn', `⚔ ${me.name} attacks with ${atk.length} creature${atk.length > 1 ? 's' : ''}!`);
+    render(match); await sleep(600);
+
+    const aliveAtk = atk.filter(a => me.battlefield.includes(a));
+    const blocks = chooseBlockers(match, 1 - pi, aliveAtk);
+    if (blocks.size) {
+      logEvent(match, 'info', `🛡 ${them.name} blocks with ${blocks.size} creature${blocks.size > 1 ? 's' : ''}.`);
+      render(match); await sleep(400);
+    } else if (aliveAtk.length) {
+      logEvent(match, 'warn', `${them.name} takes it unblocked!`);
+    }
+
+    combatDamage(match, aliveAtk, blocks);
+    removeDeadCreatures(match); if (checkGameOver(match)) return;
+    render(match); await drainAnnouncements(match); await sleep(400);
+  } else {
+    logEvent(match, 'info', `${me.name} holds back — no attacks this turn.`);
+  }
+
+  // ─── MAIN PHASE 2: deploy creatures + utility ───
+  match.phase = 'main2'; render(match); await sleep(300);
+  await playBestCards(match, pi, 3);
+  if (match.finished) return;
+
+  // ─── END STEP ───
+  for (const p of match.players) { for (const c of p.battlefield) { c.damage = 0; } }
+  discardToLimit(match, pi); discardToLimit(match, 1 - pi);
+  clearEOT(me); clearEOT(them);
+  if (checkGameOver(match)) return;
+  match.phase = 'end'; match.active = 1 - pi; render(match); await sleep(400);
+}
+
+/* ── Match runner ──────────────────────────────────────────── */
+function pickRandomPair() {
+  const keys = Object.keys(DECKS);
+  const a = keys[Math.floor(Math.random() * keys.length)];
+  let b = keys[Math.floor(Math.random() * keys.length)];
+  if (b === a) b = keys[(keys.indexOf(a) + 1) % keys.length];
+  return [a, b];
+}
+
+async function runAutoMatch(appState) {
+  if (!appState.match || appState.running) return;
+  appState.running = true; appState.paused = false;
+  try {
+  const rid = appState.runId, match = appState.match;
+  match.started = true; match.turn = 0; match.active = rngInt(match.rng, 0, 1);
+  logEvent(match, 'info', `Match begins! ${match.players[match.active].name} goes first.`);
+
+  // Start overlay
+  await showOverlay(`<div class="overlay-title">⚔️ BATTLE START</div><div class="overlay-sub">${match.players[0].name}<br>vs<br>${match.players[1].name}</div>`, 2000);
+  render(match);
+
+  while (appState.running && rid === appState.runId && !match.finished) {
+    if (appState.paused) { await sleep(80); continue; }
+    await takeTurn(match); render(match);
+  }
+
+  // End overlay + countdown
+  if (match.finished) {
+    try {
+      const winner = match.winner?.name || 'Draw';
+      appState.series.games++;
+      if (match.winner) appState.series.wins[match.winner.name] = (appState.series.wins[match.winner.name] || 0) + 1;
+
+      render(match);
+      await showOverlay(`<div class="overlay-title">${match.winner ? '🏆 VICTORY' : '🤝 DRAW'}</div><div class="overlay-sub">${winner}</div><div class="overlay-stats">Game #${appState.series.games} · ${match.turn} turns</div>`, 4000);
+
+      // Auto-rematch countdown
+      if (appState.autoRematch && rid === appState.runId) {
+        for (let sec = 10; sec > 0 && rid === appState.runId && !appState.paused; sec--) {
+          $('#summaryBox').textContent = `Next game in ${sec}s…`;
+          $('#statusBar').textContent = `🏆 ${winner} won · Next match in ${sec}s`;
+          await sleep(1000);
+        }
+        if (rid === appState.runId && appState.autoRematch) {
+          const [lk, rk] = pickRandomPair();
+          $('#leftDeck').value = lk; $('#rightDeck').value = rk;
+          const seed = Date.now() & 0xFFFF;
+          appState.match = createMatch(seed, lk, rk);
+          appState.match.speed = 600;
+          appState.match.gameNumber = appState.series.games + 1;
+          appState.running = false;
+          await runAutoMatch(appState);
+          return;
+        }
+      }
+    } catch (err) {
+      console.error('End-game error:', err);
+      $('#statusBar').textContent = '⚠ End-game error: ' + err.message;
+    }
+  }
+  appState.running = false; render(appState.match);
+  } catch (err) {
+    console.error('Match loop error:', err);
+    $('#statusBar').textContent = '⚠ Match error: ' + err.message;
+    appState.running = false;
+  }
+}
+
+/* ── Init ──────────────────────────────────────────────────── */
+function initDeckSelects() {
+  const left = $('#leftDeck'), right = $('#rightDeck');
+  left.innerHTML = ''; right.innerHTML = '';
+  for (const [key, def] of Object.entries(DECKS)) {
+    const o1 = document.createElement('option'); o1.value = key; o1.textContent = def.name; left.appendChild(o1);
+    const o2 = document.createElement('option'); o2.value = key; o2.textContent = def.name; right.appendChild(o2);
+  }
+  const keys = Object.keys(DECKS);
+  left.value = keys[0] || ''; right.value = keys[1] || keys[0] || '';
+}
+
+function wireControls() {
+  $('#startBtn').addEventListener('click', async () => {
+    if (state.running) return;
+    const lk = $('#leftDeck').value, rk = $('#rightDeck').value;
+    if (!DECKS[lk] || !DECKS[rk]) { $('#statusBar').textContent = 'Cards not loaded yet.'; return; }
+    state.match = createMatch(Number($('#seedInput').value) || Date.now(), lk, rk);
+    state.match.speed = 600;
+    state.match.gameNumber = state.series.games + 1;
+    state.match.log = [];
+    render(state.match);
+    await runAutoMatch(state);
+  });
+  $('#pauseBtn').addEventListener('click', () => { state.paused = !state.paused; $('#pauseBtn').textContent = state.paused ? 'Resume' : 'Pause'; });
+  $('#resetBtn').addEventListener('click', () => {
+    state.running = false; state.runId++; state.series = { games: 0, wins: {} };
+    const lk = $('#leftDeck').value, rk = $('#rightDeck').value;
+    if (!DECKS[lk] || !DECKS[rk]) { $('#statusBar').textContent = 'Cards not loaded yet.'; return; }
+    state.match = createMatch(1337, lk, rk); render(state.match);
+  });
+  $('#formatSelect').addEventListener('change', async () => {
+    if (state.running) { state.running = false; state.runId++; await sleep(200); }
+    state.series = { games: 0, wins: {} };
+    $('#statusBar').textContent = `Rebuilding decks for ${formatLabel()}…`;
+    $('#startBtn').disabled = true;
+    // Clear and rebuild decks with new format settings
+    for (const k of Object.keys(DECKS)) delete DECKS[k];
+    for (const k of Object.keys(CARD_DB)) delete CARD_DB[k];
+    try { await loadDeckCatalog($('#statusBar')); } catch(e) { $('#statusBar').textContent = 'Reload failed: ' + e.message; return; }
+    initDeckSelects();
+    const [lk, rk] = pickRandomPair();
+    $('#leftDeck').value = lk; $('#rightDeck').value = rk;
+    state.match = createMatch(1337, lk, rk);
+    render(state.match);
+    $('#startBtn').disabled = false;
+    $('#statusBar').textContent = `Ready — ${Object.keys(CARD_DB).length} cards · ${formatLabel()}`;
+  });
+
+}
+
+async function bootstrap() {
+  const status = $('#statusBar');
+  status.textContent = 'Loading card catalog from Scryfall…';
+  $('#startBtn').disabled = true;
+
+  try {
+    await loadDeckCatalog(status);
+  } catch (err) {
+    status.textContent = `Failed to load cards: ${err.message}. Refresh to retry.`;
+    console.error(err);
+    return;
+  }
+
+  initDeckSelects();
+  wireControls();
+  const [lk, rk] = pickRandomPair();
+  $('#leftDeck').value = lk; $('#rightDeck').value = rk;
+  state.match = createMatch(1337, lk, rk);
+  render(state.match);
+  $('#startBtn').disabled = false;
+  status.textContent = `Ready — ${Object.keys(CARD_DB).length} real cards loaded · ${formatLabel()}`;
+}
+
+bootstrap();
+</script>

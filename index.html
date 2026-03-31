@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AI MTG Match</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app">
+      <header class="topbar">
+        <div>
+          <h1>AI MTG Match</h1>
+          <p>Head-to-head autonomous Magic-inspired battles with no human players.</p>
+        </div>
+        <div class="controls">
+          <label>
+            Left deck
+            <select id="leftDeck"></select>
+          </label>
+          <label>
+            Right deck
+            <select id="rightDeck"></select>
+          </label>
+          <label>
+            Format
+            <select id="formatSelect">
+              <option value="standard">Standard (60 cards · 20 HP)</option>
+              <option value="commander">Commander (100 cards · 40 HP)</option>
+            </select>
+          </label>
+          <label>
+            Seed
+            <input id="seedInput" type="number" value="1337" />
+          </label>
+
+          <button id="startBtn" class="primary">Start match</button>
+          <button id="pauseBtn">Pause</button>
+          <button id="resetBtn">Reset</button>
+          <button id="multiBtn">Run 25 matches</button>
+        </div>
+      </header>
+
+      <main class="grid">
+        <section class="board">
+          <div id="statusBar" class="statusBar"></div>
+          <div class="arena">
+            <article class="seat top" id="seat1"></article>
+            <div class="centerLane">
+              <div class="phaseBox" id="phaseBox"></div>
+              <div class="matchBox" id="matchBox"></div>
+              <div class="summaryBox" id="summaryBox"></div>
+            </div>
+            <article class="seat bottom" id="seat2"></article>
+          </div>
+        </section>
+
+        <aside class="logPane">
+          <div class="logHeader">
+            <h2>Match log</h2>
+            <div id="matchMeta"></div>
+          </div>
+          <div id="log" class="log"></div>
+          <div class="footerHint">
+            <span>Real MTG cards from Scryfall · Auto-mana engine · AI vs AI</span>
+          </div>
+        </aside>
+      </main>
+    </div>
+
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>
